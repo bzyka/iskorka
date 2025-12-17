@@ -1,0 +1,592 @@
+openapi: 3.0.1
+info:
+  title: Кинотеатр “Искорка” — API бронирования
+  description: |
+    ![Изображение кинотеатра](https://avatars.mds.yandex.net/i?id=6af2a17809b6ed5eda9f1cd612d60c08_sr-12154389-images-thumbs&n=13)
+
+    **Поддерживает просмотр сеансов, бронирование и отмену мест, а также административное управление расписанием.**
+  version: 2.0.0
+
+servers:
+
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/home-670/Iskorka/2.0.0
+  - url: https://api.iskorka-cinema.ru
+  - url: http://127.0.1.1
+
+paths:
+  /sessions:
+    get:
+      tags:
+        - Сеансы
+      summary: Получить список сеансов
+      description: Работа с сеансами. 
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          description: Количество сеансов в ответе
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Номер первого сеанса в выборке (начиная с 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        '200':
+          description: Список сеансов с пагинацией
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionsPaginated'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SessionsPaginated'
+        '400':
+          description: Некорректные параметры запроса (например, отрицательный limit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Параметр 'limit' должен быть положительным числом не более 100"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Параметр 'limit' должен быть положительным числом не более 100"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Произошла внутренняя ошибка сервера. Повторите запрос позже."
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Произошла внутренняя ошибка сервера. Повторите запрос позже."
+
+  '/sessions/{session_id}/seats':
+    get:
+      tags:
+        - Места
+      summary: Получить список мест на сеанс
+      description: Информация о местах
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список мест
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Seat'
+            application/xml:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Seat'
+        '400':
+          description: Некорректный идентификатор сеанса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Некорректный формат UUID для session_id"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Некорректный формат UUID для session_id"
+        '404':
+          description: Сеанс не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Сеанс с указанным ID не найден"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Сеанс с указанным ID не найден"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при получении данных о местах"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при получении данных о местах"
+
+  /bookings:
+    post:
+      tags:
+        - Брони
+      summary: Забронировать место
+      description: Управление бронированиями
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+      responses:
+        '201':
+          description: Бронь успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '400':
+          description: Ошибка валидации (неверный email или отсутствующие поля)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Поле 'customer_email' имеет неверный формат"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Поле 'customer_email' имеет неверный формат"
+        '404':
+          description: Сеанс или место не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Указанный сеанс или место не существует"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Указанный сеанс или место не существует"
+        '409':
+          description: Место уже занято
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 409
+                message: "Выбранное место уже занято другим зрителем"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 409
+                message: "Выбранное место уже занято другим зрителем"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Не удалось создать бронь из-за внутренней ошибки"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Не удалось создать бронь из-за внутренней ошибки"
+
+  '/bookings/{booking_id}':
+    delete:
+      tags:
+        - Брони
+      summary: Отменить бронь
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Бронь успешно отменена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [cancelled]
+            application/xml:
+              schema:
+                type: object
+                properties:
+                  booking_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [cancelled]
+        '400':
+          description: Некорректный идентификатор брони
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Некорректный формат UUID для booking_id"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Некорректный формат UUID для booking_id"
+        '404':
+          description: Бронь не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Бронь с указанным ID не найдена"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Бронь с указанным ID не найдена"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при отмене брони"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при отмене брони"
+
+  '/admin/sessions/{session_id}':
+    patch:
+      tags:
+        - Администрирование
+      summary: Изменить время сеанса
+      description: Административные операции (требуется авторизация)
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [start_time]
+              properties:
+                start_time:
+                  type: string
+                  format: date-time
+          application/xml:
+            schema:
+              type: object
+              required: [start_time]
+              properties:
+                start_time:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Сеанс обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Некорректное время сеанса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Время сеанса должно быть в будущем и в формате ISO 8601"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Время сеанса должно быть в будущем и в формате ISO 8601"
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 401
+                message: "Требуется аутентификация."
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 401
+                message: "Требуется аутентификация."
+        '403':
+          description: Доступ запрещён (недостаточно прав)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 403
+                message: "У вас недостаточно прав для изменения расписания"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 403
+                message: "У вас недостаточно прав для изменения расписания"
+        '404':
+          description: Сеанс не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Сеанс для обновления не найден"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Сеанс для обновления не найден"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при обновлении времени сеанса"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при обновлении времени сеанса"
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+      required:
+        - code
+        - message
+      xml:
+        name: error
+
+    SessionsPaginated:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+        pagination:
+          type: object
+          properties:
+            limit:
+              type: integer
+              example: 20
+            offset:
+              type: integer
+              example: 1
+            totalCount:
+              type: integer
+              example: 150
+          required:
+            - limit
+            - offset
+            - totalCount
+      required:
+        - sessions
+        - pagination
+      xml:
+        name: sessionsResponse
+
+    Session:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        film_title:
+          type: string
+          example: "Пятачок - первая кровь!"
+        start_time:
+          type: string
+          format: date-time
+          example: "2025-11-28T15:00:00Z"
+        hall_number:
+          type: integer
+          example: 2
+        total_seats:
+          type: integer
+          example: 80
+      required:
+        - session_id
+        - film_title
+        - start_time
+        - hall_number
+        - total_seats
+      xml:
+        name: session
+
+    Seat:
+      type: object
+      properties:
+        seat_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        row_number:
+          type: integer
+          example: 5
+        seat_number:
+          type: integer
+          example: 12
+        is_available:
+          type: boolean
+          example: true
+      required:
+        - seat_id
+        - row_number
+        - seat_number
+        - is_available
+      xml:
+        name: seat
+
+    BookingRequest:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        seat_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        customer_name:
+          type: string
+          example: "Вася Петечкин"
+        customer_email:
+          type: string
+          format: email
+          example: "vacia.petechkin@mail.ru"
+      required:
+        - session_id
+        - seat_id
+        - customer_name
+        - customer_email
+      xml:
+        name: bookingRequest
+
+    BookingResponse:
+      type: object
+      properties:
+        booking_id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8"
+        status:
+          type: string
+          enum: [active]
+          example: "active"
+        booking_time:
+          type: string
+          format: date-time
+          example: "2025-11-24T10:30:00Z"
+      required:
+        - booking_id
+        - status
+        - booking_time
+      xml:
+        name: bookingResponse
