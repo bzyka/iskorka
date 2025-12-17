@@ -1,0 +1,250 @@
+openapi: 3.0.1
+info:
+  title: Кинотеатр “Искорка” — API бронирования
+  description: |
+    ![Кинотеатр “Искорка”](https://avatars.mds.yandex.net/i?id=6af2a17809b6ed5eda9f1cd612d60c08_sr-12154389-images-thumbs&n=13)
+
+    **Поддерживает просмотр сеансов, бронирование и отмену мест, а также административное управление расписанием.**
+  version: 1.0.0
+servers:
+  - url: https://api.iskorka-cinema.ru
+  - url: http://127.0.1.1
+
+paths:
+  /sessions:
+    get:
+      tags:
+        - Сеансы
+      summary: Получить список сеансов
+      description: Работа с сеансами
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Список сеансов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+
+  '/sessions/{session_id}/seats':
+    get:
+      tags:
+        - Места
+      summary: Получить список мест на сеанс
+      description: Информация о местах
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список мест
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Seat'
+        '404':
+          description: Сеанс не найден
+
+  /bookings:
+    post:
+      tags:
+        - Брони
+      summary: Забронировать место
+      description: Управление бронированиями
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+      responses:
+        '201':
+          description: Бронь успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '400':
+          description: Ошибка валидации (например, неверный email или отсутствующие поля)
+        '404':
+          description: Сеанс или место не найдено
+        '409':
+          description: Место уже занято
+
+  '/bookings/{booking_id}':
+    delete:
+      tags:
+        - Брони
+      summary: Отменить бронь
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Бронь успешно отменена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum:
+                      - cancelled
+        '404':
+          description: Бронь не найдена
+
+  '/admin/sessions/{session_id}':
+    patch:
+      tags:
+        - Администрирование
+      summary: Изменить время сеанса
+      description: Административные операции (требуется авторизация)
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - start_time
+              properties:
+                start_time:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Сеанс обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: Неавторизован 
+        '403':
+          description: Доступ запрещён (недостаточно прав)
+        '404':
+          description: Сеанс не найден
+
+components:
+  schemas:
+    Session:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        film_title:
+          type: string
+          example: "Пятачок - первая кровь!"
+        start_time:
+          type: string
+          format: date-time
+          example: "2025-11-28T15:00:00Z"
+        hall_number:
+          type: integer
+          example: 2
+        total_seats:
+          type: integer
+          example: 80
+      required:
+        - session_id
+        - film_title
+        - start_time
+        - hall_number
+        - total_seats
+
+    Seat:
+      type: object
+      properties:
+        seat_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        row_number:
+          type: integer
+          example: 5
+        seat_number:
+          type: integer
+          example: 12
+        is_available:
+          type: boolean
+          example: true
+      required:
+        - seat_id
+        - row_number
+        - seat_number
+        - is_available
+
+    BookingRequest:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        seat_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        customer_name:
+          type: string
+          example: "Вася Петечкин"
+        customer_email:
+          type: string
+          format: email
+          example: "vacia.petechkin@mail.ru"
+      required:
+        - session_id
+        - seat_id
+        - customer_name
+        - customer_email
+
+    BookingResponse:
+      type: object
+      properties:
+        booking_id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8"
+        status:
+          type: string
+          enum: [active]
+          example: "active"
+        booking_time:
+          type: string
+          format: date-time
+          example: "2025-11-24T10:30:00Z"
+      required:
+        - booking_id
+        - status
+        - booking_time
