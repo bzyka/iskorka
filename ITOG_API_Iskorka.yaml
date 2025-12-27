@@ -1,0 +1,853 @@
+openapi: 3.0.1
+info:
+  title: Кинотеатр “Искорка” — API бронирования
+  description: |
+    ![Изображение кинотеатра](https://avatars.mds.yandex.net/i?id=6af2a17809b6ed5eda9f1cd612d60c08_sr-12154389-images-thumbs&n=13)
+
+    **Поддерживает просмотр сеансов, бронирование, отмену мест, административное управление расписанием и бонусную программу.**
+  version: 3.0.0
+
+servers:
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/home-670/Iskorka/3.0.0
+  - url: https://api.iskorka-cinema.ru
+    description: Продакшн-сервер
+  - url: http://127.0.1.1
+    description: Локальный сервер
+
+paths:
+  /sessions:
+    get:
+      tags:
+        - Сеансы
+      summary: Получить список сеансов
+      description: Работа с сеансами. Поддерживает пагинацию по смещению.
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          description: Количество сеансов в ответе
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Номер первого сеанса в выборке (начиная с 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        '200':
+          description: Список сеансов с пагинацией
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionsPaginated'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SessionsPaginated'
+        '400':
+          description: Некорректные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Параметр 'limit' должен быть от 1 до 100"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Параметр 'limit' должен быть от 1 до 100"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при получении списка сеансов"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при получении списка сеансов"
+
+  '/sessions/{session_id}/seats':
+    get:
+      tags:
+        - Места
+      summary: Получить список мест на сеанс
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список мест
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Seat'
+            application/xml:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Seat'
+        '400':
+          description: Некорректный идентификатор сеанса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Некорректный формат UUID"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Некорректный формат UUID"
+        '404':
+          description: Сеанс не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Сеанс не найден"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Сеанс не найден"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при получении мест"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при получении мест"
+
+  /bookings:
+    post:
+      tags:
+        - Брони
+      summary: Забронировать место (с поддержкой бонусов)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequestWithBonus'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/BookingRequestWithBonus'
+      responses:
+        '201':
+          description: Бронь успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponseWithBonus'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/BookingResponseWithBonus'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Сумма бонусов превышает 50% от стоимости"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Сумма бонусов превышает 50% от стоимости"
+        '404':
+          description: Сеанс, место или бонусная карта не найдены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Бонусная карта не найдена"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Бонусная карта не найдена"
+        '409':
+          description: Место уже занято
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 409
+                message: "Место уже занято"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 409
+                message: "Место уже занято"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при создании брони"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при создании брони"
+
+  '/bookings/{booking_id}':
+    delete:
+      tags:
+        - Брони
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Бронь отменена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [cancelled]
+            application/xml:
+              schema:
+                type: object
+                properties:
+                  booking_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [cancelled]
+        '404':
+          description: Бронь не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Бронь не найдена"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Бронь не найдена"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при отмене брони"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при отмене брони"
+
+  '/admin/sessions/{session_id}':
+    patch:
+      tags:
+        - Администрирование
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [start_time]
+              properties:
+                start_time:
+                  type: string
+                  format: date-time
+          application/xml:
+            schema:
+              type: object
+              required: [start_time]
+              properties:
+                start_time:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Сеанс обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 401
+                message: "Требуется аутентификация"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 401
+                message: "Требуется аутентификация"
+        '403':
+          description: Доступ запрещён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 403
+                message: "Недостаточно прав"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 403
+                message: "Недостаточно прав"
+        '404':
+          description: Сеанс не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Сеанс не найден"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Сеанс не найден"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при обновлении сеанса"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при обновлении сеанса"
+
+  /bonus-cards:
+    post:
+      tags:
+        - Бонусы
+      summary: Создать бонусную карту
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BonusCardCreateRequest'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/BonusCardCreateRequest'
+      responses:
+        '201':
+          description: Карта создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusCard'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/BonusCard'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Email уже зарегистрирован"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Email уже зарегистрирован"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при создании карты"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при создании карты"
+
+  '/bonus-cards/{card_id}':
+    get:
+      tags:
+        - Бонусы
+      summary: Получить данные бонусной карты
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные карты
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusCard'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/BonusCard'
+        '404':
+          description: Карта не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Бонусная карта не найдена"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404
+                message: "Бонусная карта не найдена"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при получении карты"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при получении карты"
+
+  /reports/bonus-usage:
+    get:
+      tags:
+        - Отчёты
+      summary: Ежемесячный отчёт по бонусам
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 2000
+            example: 2025
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            example: 11
+      responses:
+        '200':
+          description: Отчёт по бонусам
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusUsageReport'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/BonusUsageReport'
+        '400':
+          description: Некорректные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Год и месяц обязательны"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400
+                message: "Год и месяц обязательны"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при генерации отчёта"
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 500
+                message: "Ошибка при генерации отчёта"
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+      required:
+        - code
+        - message
+      xml:
+        name: error
+
+    Pagination:
+      type: object
+      required:
+        - limit
+        - offset
+        - totalCount
+      properties:
+        limit:
+          type: integer
+          example: 20
+        offset:
+          type: integer
+          example: 1
+        totalCount:
+          type: integer
+          example: 150
+      xml:
+        name: pagination
+
+    SessionsPaginated:
+      type: object
+      required:
+        - sessions
+        - pagination
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      xml:
+        name: sessionsResponse
+
+    Session:
+      type: object
+      required:
+        - session_id
+        - film_title
+        - start_time
+        - hall_number
+        - total_seats
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        film_title:
+          type: string
+          example: "Пятачок - первая кровь!"
+        start_time:
+          type: string
+          format: date-time
+          example: "2025-11-28T15:00:00Z"
+        hall_number:
+          type: integer
+          example: 2
+        total_seats:
+          type: integer
+          example: 80
+      xml:
+        name: session
+
+    Seat:
+      type: object
+      required:
+        - seat_id
+        - row_number
+        - seat_number
+        - is_available
+      properties:
+        seat_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        row_number:
+          type: integer
+          example: 5
+        seat_number:
+          type: integer
+          example: 12
+        is_available:
+          type: boolean
+          example: true
+      xml:
+        name: seat
+
+    BonusCard:
+      type: object
+      required:
+        - card_id
+        - customer_email
+        - customer_name
+        - balance
+        - created_at
+      properties:
+        card_id:
+          type: string
+          format: uuid
+          example: "b1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n9"
+        customer_email:
+          type: string
+          format: email
+          example: "vasya@example.com"
+        customer_name:
+          type: string
+          example: "Вася Петечкин"
+        balance:
+          type: number
+          format: float
+          example: 150.0
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-01T10:00:00Z"
+        last_used:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-11-24T10:30:00Z"
+      xml:
+        name: bonusCard
+
+    BonusCardCreateRequest:
+      type: object
+      required:
+        - customer_name
+        - customer_email
+      properties:
+        customer_name:
+          type: string
+          example: "Вася Петечкин"
+        customer_email:
+          type: string
+          format: email
+          example: "vasya@example.com"
+      xml:
+        name: createBonusCard
+
+    BookingRequestWithBonus:
+      type: object
+      required:
+        - session_id
+        - seat_id
+        - customer_name
+        - customer_email
+        - total_amount
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        seat_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        customer_name:
+          type: string
+          example: "Вася Петечкин"
+        customer_email:
+          type: string
+          format: email
+          example: "vasya@example.com"
+        bonus_card_id:
+          type: string
+          format: uuid
+          nullable: true
+          example: "b1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n9"
+        total_amount:
+          type: number
+          format: float
+          example: 600.0
+        use_bonus_amount:
+          type: number
+          format: float
+          minimum: 0
+          example: 300.0
+      xml:
+        name: bookingRequest
+
+    BookingResponseWithBonus:
+      type: object
+      required:
+        - booking_id
+        - status
+        - booking_time
+        - total_amount
+        - bonus_used
+        - bonus_earned
+      properties:
+        booking_id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8"
+        status:
+          type: string
+          enum: [active, paid]
+          example: "paid"
+        booking_time:
+          type: string
+          format: date-time
+          example: "2025-11-24T10:30:00Z"
+        total_amount:
+          type: number
+          format: float
+          example: 600.0
+        bonus_used:
+          type: number
+          format: float
+          example: 300.0
+        bonus_earned:
+          type: number
+          format: float
+          example: 30.0
+      xml:
+        name: bookingResponse
+
+    BonusUsageReport:
+      type: object
+      required:
+        - year
+        - month
+        - total_bookings
+        - bookings_with_bonus
+        - bonus_usage_rate_percent
+        - total_bonus_earned
+        - total_bonus_spent
+      properties:
+        year:
+          type: integer
+          example: 2025
+        month:
+          type: integer
+          example: 11
+        total_bookings:
+          type: integer
+          example: 1200
+        bookings_with_bonus:
+          type: integer
+          example: 360
+        bonus_usage_rate_percent:
+          type: number
+          format: float
+          example: 28.5
+        total_bonus_earned:
+          type: number
+          format: float
+          example: 15000.0
+        total_bonus_spent:
+          type: number
+          format: float
+          example: 8500.0
+      xml:
+        name: bonusReport
